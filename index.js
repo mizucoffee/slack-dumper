@@ -3,7 +3,13 @@ import { WebClient } from 'https://deno.land/x/slack_web_api/mod.js';
 import { delay } from 'https://deno.land/x/delay@v0.2.0/mod.ts';
 import { download } from "https://deno.land/x/download/mod.ts";
 
-const token = Deno.env.get("SLACK_TOKEN");
+const token = Deno.args[0] || Deno.env.get("SLACK_TOKEN");
+
+if(!token) {
+  console.error("Missing token");
+  Deno.exit(1);
+}
+
 const waitTime = 60000 / 50;
 
 if(!token) {
