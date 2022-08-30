@@ -30,11 +30,25 @@ await Deno.mkdir("output/channels", { recursive: true });
 await Deno.mkdir("output/files", { recursive: true });
 await Deno.mkdir("output/users", { recursive: true });
 
-// await dumpUsers();
-// await dumpConversations();
-// await dumpBotInfo();
+await dumpFiles();
+await dumpUsers();
+await dumpConversations();
+await dumpBotInfo();
 await dumpEmojis();
-// await dumpInfo();
+await dumpInfo();
+
+async function dumpFiles(page = 1) {
+  await delay(waitTime);
+  const files = await web.files.list({ page });
+  for(const file of files.files) {
+    const { id, name, url_private_download } = file;
+    await download(url_private_download, { file: `${id}.${name.split(".").pop()}`, dir: `output/files/` }, { headers: { Authorization: `Bearer ${token}` } });
+  }
+
+  if(files.paging.pages > page) {
+    await dumpFiles(page + 1);
+  }
+}
 
 async function dumpEmojis() {
   await delay(waitTime);
@@ -89,6 +103,7 @@ async function dumpConversations(cursor = null) {
   for(const channel of conversations.channels) {
     const messages = await fetchMessages(channel.id);
     channel.messages = messages;
+    channel.bookmarks = await fetchBookmarks(channel.id);
     for(const message of messages) {
       if(message.bot_id) bot_ids.add(message.bot_id);
     }
@@ -101,16 +116,18 @@ async function dumpConversations(cursor = null) {
   }
 }
 
+async function fetchBookmarks(channelId) {
+  await delay(waitTime);
+  const res = await web.bookmarks.list({ channel: channelId });
+  return res.bookmarks;
+}
+
 async function fetchMessages(channelId, cursor = null) {
   await delay(waitTime);
   const history = await web.conversations.history({ channel: channelId, limit: 100, cursor });
   const messages = await Promise.all(history.messages.map(async m => {
-    m.files = m.files ? await Promise.all(m.files.map(async f => {
-      if(!f.url_private_download) return f;
-      await download(f.url_private, { file: `${f.id}_${f.name}`, dir: `output/files/` }, { headers: { Authorization: `Bearer ${token}` } });
-      f.filepath = `${f.id}_${f.name}`;
-      return f;
-    })) : [];
+    m.replies = m.reply_count ?  await fetchReplies(channelId, m.ts) : [];;
+    m.replies.shift();
     return m;
   }));
 
@@ -122,8 +139,19 @@ async function fetchMessages(channelId, cursor = null) {
   return messages;
 }
 
-// 関連ページを取得する
-// 絵文字を取得する
+async function fetchReplies(channelId, ts, cursor = null) {
+  await delay(waitTime);
+  const res = await web.conversations.replies({ channel: channelId, ts: ts, limit: 200, cursor });
+  const replies = res.messages;
+
+  if(res.response_metadata.next_cursor) {
+    const m = await fetchReplies(channelId, ts, res.response_metadata.next_cursor);
+    replies.push(...m);
+  }
+
+  return replies;
+}
+
+// Bookmarks
+// リアクション
 // リプライ
-// コードブロック
-// ファイル埋め込み

@@ -20,6 +20,7 @@ Denoが必要です。
       - users:read
       - team:read
       - emoji:read
+      - bookmarks:read
    3. ワークスペースにインストールする
    4. OAuth & PermissionsページでUser OAuth Tokenを入手する
 2. 以下のコマンドを実行する
